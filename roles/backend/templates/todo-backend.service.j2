@@ -1,0 +1,15 @@
+[Unit]
+Description=Todo backend (Flask/Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=todo
+WorkingDirectory=/opt/todo-backend
+EnvironmentFile=/opt/todo-backend/.env
+ExecStart=/opt/todo-backend/venv/bin/gunicorn -w 2 -b 0.0.0.0:{{ backend_port }} app:app
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

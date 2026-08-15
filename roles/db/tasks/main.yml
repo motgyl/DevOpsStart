@@ -1,0 +1,56 @@
+--- 
+- name: Install postgresql
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - python3-psycopg2
+    state: present 
+    update_cache: true
+
+- name: Ensure postgresql is running and enabled
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: create db user
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    state: present
+
+- name: Create db
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    state: present
+
+- name: Apply scheme
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    login_db: "{{ db_name }}"
+    query: "{{ lookup('file', 'init.sql') }}"
+
+- name: Grant table privileges to app user
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    login_db: "{{ db_name }}"
+    query: "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO {{ db_user }};"
+
+- name: Grant sequence privileges to app user
+  become_user: postgres
+  community.postgresql.postgresql_query:
+    login_db: "{{ db_name }}"
+    query: "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO {{ db_user }};"
+
+- name: Allow backend network to reach postgres
+  ansible.builtin.blockinfile:
+    path: /etc/postgresql/16/main/pg_hba.conf
+    marker: "# {mark} ansible-managed remote access"
+    block: |
+      host    all             all             0.0.0.0/0               scram-sha-256
+      host    all             all             ::/0                    scram-sha-256
+  notify: restart postgresql
+

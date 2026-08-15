@@ -1,0 +1,72 @@
+---
+- name: Install packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+    state: present
+    update_cache: true
+
+- name: Create app user
+  ansible.builtin.user:
+    name: todo
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create app directory
+  ansible.builtin.file:
+    path: /opt/todo-backend
+    state: directory
+    owner: todo
+    group: todo
+    mode: "0755"
+
+- name: Copy application code
+  ansible.builtin.copy:
+    src: app.py
+    dest: /opt/todo-backend/app.py
+    owner: todo
+    group: todo
+    mode: "0644"
+  notify: restart backend
+
+- name: Copy requirements
+  ansible.builtin.copy:
+    src: requirements.txt
+    dest: /opt/todo-backend/requirements.txt
+    owner: todo
+    group: todo
+    mode: "0644"
+
+- name: Create virtualenv and install dependencies
+  ansible.builtin.pip:
+    requirements: /opt/todo-backend/requirements.txt
+    virtualenv: /opt/todo-backend/venv
+    virtualenv_command: python3 -m venv
+  notify: restart backend
+
+- name: Template .env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: /opt/todo-backend/.env
+    owner: todo
+    group: todo
+    mode: "0600"
+  notify: restart backend
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: todo-backend.service.j2
+    dest: /etc/systemd/system/todo-backend.service
+    mode: "0644"
+  notify: restart backend
+  
+- name: Enable and start backend service
+  ansible.builtin.systemd:
+    name: todo-backend
+    state: started
+    enabled: true
+    daemon_reload: true
+

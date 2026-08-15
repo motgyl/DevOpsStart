@@ -1,0 +1,4 @@
+db_name: startdb
+db_user: motgyl
+db_password: try_harder
+backend_port: 7001

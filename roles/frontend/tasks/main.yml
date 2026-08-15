@@ -1,0 +1,55 @@
+---
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+- name: Create webroot
+  ansible.builtin.file:
+    path: /var/www/todo-frontend
+    state: directory
+    mode: "0755"
+
+- name: Deploy static files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/var/www/todo-frontend/{{ item }}"
+    mode: "0644"
+  loop:
+    - index.html
+    - style.css
+    - app.js
+
+- name: Template backend address into config.js
+  ansible.builtin.template:
+    src: config.js.j2
+    dest: /var/www/todo-frontend/config.js
+    mode: "0644"
+
+- name: Deploy nginx site config
+  ansible.builtin.copy:
+    src: nginx-frontend.conf
+    dest: /etc/nginx/sites-available/todo-frontend
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/todo-frontend
+    dest: /etc/nginx/sites-enabled/todo-frontend
+    state: link
+  notify: reload nginx
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Ensure nginx running and enabled
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
